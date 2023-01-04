@@ -49,7 +49,7 @@ class DrSpaamROS(Node):
         """
         @brief      Convenience function to read publisher parameter.
         """
-        topic = self.get_parameter_or("publisher/" + name + "/topic", name)
+        topic = self.get_parameter_or("publisher/" + name + "/topic", "dr_spaam_" + name)
         queue_size = self.get_parameter_or("publisher/" + name + "/queue_size", 10)
         latch = self.get_parameter_or("publisher/" + name + "/latch", False)
         return topic, queue_size, latch
@@ -122,7 +122,7 @@ def detections_to_rviz_marker(dets_xy, dets_cls):
     msg.ns = "dr_spaam_ros"
     msg.id = 0
     msg.type = Marker.LINE_LIST
-
+    #msg.header.frame_id = "mobile_base_double_lidar"
     # set quaternion so that RViz does not give warning
     msg.pose.orientation.x = 0.0
     msg.pose.orientation.y = 0.0
@@ -141,6 +141,7 @@ def detections_to_rviz_marker(dets_xy, dets_cls):
 
     # to msg
     for d_xy, d_cls in zip(dets_xy, dets_cls):
+        d_xy = -d_xy
         for i in range(len(xy_offsets) - 1):
             # start point of a segment
             p0 = Point()
@@ -162,6 +163,7 @@ def detections_to_rviz_marker(dets_xy, dets_cls):
 def detections_to_pose_array(dets_xy, dets_cls):
     pose_array = PoseArray()
     for d_xy, d_cls in zip(dets_xy, dets_cls):
+        d_xy = -d_xy
         # Detector uses following frame convention:
         # x forward, y rightward, z downward, phi is angle w.r.t. x-axis
         p = Pose()
