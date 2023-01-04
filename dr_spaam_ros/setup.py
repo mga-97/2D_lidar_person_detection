@@ -20,7 +20,7 @@ setup(
  tests_require=['pytest'],
  entry_points={
      'console_scripts': [
-             'my_node = my_py_pkg.my_node:main'
+             'test = dr_spaam_ros.dr_spaam_ros:main'
      ],
    },
 )
