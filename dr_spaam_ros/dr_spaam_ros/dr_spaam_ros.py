@@ -30,28 +30,42 @@ class DrSpaamROS(Node):
         """
         @brief      Reads parameters from ROS server.
         """
-        self.weight_file = self.get_parameter_or("weight_file", "/code/humble/self_supervised_person_detection/checkpoints/ckpt_jrdb_ann_drow3_e40.pth")
-        self.conf_thresh = self.get_parameter_or("conf_thresh", 0.9)
-        self.stride = self.get_parameter_or("stride", 2)
-        self.detector_model = self.get_parameter_or("detector_model", "DROW3")
-        self.panoramic_scan = self.get_parameter_or("panoramic_scan", True)
-        self.use_gpu = self.get_parameter_or("use_gpu", False)
+        self.declare_parameter("weight_file", "/code/humble/self_supervised_person_detection/checkpoints/ckpt_jrdb_ann_drow3_e40.pth")
+        self.declare_parameter("conf_thresh", 0.9)
+        self.declare_parameter("stride", 2)
+        self.declare_parameter("detector_model", "DROW3")
+        self.declare_parameter("panoramic_scan", True)	
+        self.declare_parameter("use_gpu", False)	
+		
+        self.weight_file = str(self.get_parameter("weight_file").value)
+        self.conf_thresh = float(self.get_parameter("conf_thresh").value)
+        self.stride = int(self.get_parameter("stride").value)
+        self.detector_model = str(self.get_parameter("detector_model").value)
+        self.panoramic_scan = bool(self.get_parameter("panoramic_scan").value)
+        self.use_gpu = bool(self.get_parameter("use_gpu").value)
 
     def read_subscriber_param(self, name):
         """
         @brief      Convenience function to read subscriber parameter.
         """
-        topic = self.get_parameter_or("subscriber/" + name + "/topic", "laser")
-        queue_size = self.get_parameter_or("subscriber/" + name + "/queue_size", 10)
+        self.declare_parameter("subscriber/" + name + "/topic", "laser")
+        self.declare_parameter("subscriber/" + name + "/queue_size", 10)
+	
+        topic = str(self.get_parameter("subscriber/" + name + "/topic").value)
+        queue_size = int(self.get_parameter("subscriber/" + name + "/queue_size").value)
         return topic, queue_size
 
     def read_publisher_param(self, name):
         """
         @brief      Convenience function to read publisher parameter.
         """
-        topic = self.get_parameter_or("publisher/" + name + "/topic", "dr_spaam_" + name)
-        queue_size = self.get_parameter_or("publisher/" + name + "/queue_size", 10)
-        latch = self.get_parameter_or("publisher/" + name + "/latch", False)
+        self.declare_parameter("publisher/" + name + "/topic", "dr_spaam_" + name)
+        self.declare_parameter("publisher/" + name + "/queue_size", 10)
+        self.declare_parameter("publisher/" + name + "/latch", False)
+
+        topic = str(self.get_parameter("publisher/" + name + "/topic").value)
+        queue_size = int(self.get_parameter("publisher/" + name + "/queue_size").value)
+        latch = bool(self.get_parameter("publisher/" + name + "/latch").value)
         return topic, queue_size, latch
     
     def _init(self):
