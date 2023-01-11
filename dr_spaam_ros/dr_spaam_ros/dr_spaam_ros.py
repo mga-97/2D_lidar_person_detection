@@ -4,11 +4,14 @@ import sys
 
 from rclpy.node import Node
 from rclpy.parameter import Parameter
-from sensor_msgs.msg import LaserScan
+from sensor_msgs.msg import LaserScan, Image
 from geometry_msgs.msg import Point, Pose, PoseArray
 from visualization_msgs.msg import Marker
 
 from dr_spaam.detector import Detector
+from dr_spaam.utils import utils as u
+import cv2
+from cv_bridge import CvBridge
 
 
 class DrSpaamROS(Node):
@@ -88,6 +91,11 @@ class DrSpaamROS(Node):
         self._scan_sub = self.create_subscription(
             LaserScan, topic, self._scan_callback, queue_size
         )
+        self._img_pub = self.create_publisher(
+            Image, "image", 1
+	)
+        self.br = CvBridge()
+        #self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
 
     def _scan_callback(self, msg):
         if (
@@ -125,6 +133,44 @@ class DrSpaamROS(Node):
         rviz_msg.header = msg.header
         self._rviz_pub.publish(rviz_msg)
 
+	# create scan image
+        W, H = 512, 512
+        scale = 30
+        image = np.zeros(shape=[H, W, 3], dtype=np.uint8)
+        step = 2*np.pi / scan.shape[0]
+        for i, s in enumerate(scan):
+            if s < np.inf:
+                x = int(W/2) + int(np.cos(i*step) * s * scale)
+                y = int(H/2) - int(np.sin(i*step) * s * scale)
+                if x>0 and x<W and y>0 and y<H:
+                    image[x,y] = (255,255,255)
+
+        clean_image = image.copy()
+        for det, cl in zip(dets_xy, dets_cls):
+            x = int(W/2) + int(det[1] * scale)
+            y = int(H/2) - int(det[0] * scale)
+            if x>0 and x<W and y>0 and y<H:
+                sz = 8
+                patch = clean_image[y-sz:y+sz, x-sz:x+sz, 0]
+                cv2.rectangle(image, (x-sz,y-sz), (x+sz,y+sz), (80,0,0), 1)
+
+                nb_components, output, stats, centroids = cv2.connectedComponentsWithStats(patch, connectivity=8)
+                sizes = stats[1:, -1]
+                centroids = centroids[1:]
+                nb_components = nb_components - 1
+
+                #for i, c in enumerate(centroids):
+                #    cv2.circle(image, (int(c[0]+x-sz), int(c[1]+y-sz)), 3, (100,100,100), 1)
+                if len(centroids) == 2 and sizes[0]>3 and sizes[1]>3:
+                    cv2.circle(image, (x,y), 12, (0,255,0), 2)
+                else:
+                    cv2.circle(image, (x,y), 12, (0,0,20), 2)
+                		
+		    
+        image = cv2.flip(image, 0)
+        #self.video_out.write(image)
+        msg2 = self.br.cv2_to_imgmsg(image)
+        self._img_pub.publish(msg2)
 
 def detections_to_rviz_marker(dets_xy, dets_cls):
     """
@@ -193,6 +239,7 @@ def main(args=None):
     rclpy.init(args=args)
     node = DrSpaamROS()
     rclpy.spin(node)
+    #node.video_out.release()
     rclpy.shutdown()
 
 if __name__ == '__main__':
