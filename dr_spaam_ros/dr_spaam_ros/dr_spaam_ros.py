@@ -6,6 +6,7 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from sensor_msgs.msg import LaserScan, Image
 from geometry_msgs.msg import Point, Pose, PoseArray
+from nav_msgs.msg import OccupancyGrid
 from visualization_msgs.msg import Marker
 
 from dr_spaam.detector import Detector
@@ -95,7 +96,18 @@ class DrSpaamROS(Node):
             Image, "image", 1
 	)
         self.br = CvBridge()
-        #self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
+
+        self._map = None        
+        self._map_sub = self.create_subscription(
+            OccupancyGrid, "map", self._map_callback, 1
+        )
+
+	#self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
+
+    def _map_callback(self, msg):
+        self._map = msg.data
+        self._map_res = msg.info.resolution
+        self._map_dims = (msg.info.width, msg.info.height)
 
     def _scan_callback(self, msg):
         if (
@@ -165,6 +177,9 @@ class DrSpaamROS(Node):
                     cv2.circle(image, (x,y), 12, (0,255,0), 2)
                 else:
                     cv2.circle(image, (x,y), 12, (0,0,20), 2)
+		    
+                # remove detections that overlap map obstacles
+                self.get_logger().info("MAP RES: %f", self._map_res)
                 		
 		    
         image = cv2.flip(image, 0)
