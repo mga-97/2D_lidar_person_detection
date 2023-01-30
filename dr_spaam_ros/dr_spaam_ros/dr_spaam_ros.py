@@ -13,6 +13,8 @@ from dr_spaam.utils import utils as u
 import cv2
 from cv_bridge import CvBridge
 
+from detectron2_ros_msgs.msg import Result
+
 
 class DrSpaamROS(Node):
     """ROS node to detect pedestrian using DROW3 or DR-SPAAM."""
@@ -85,11 +87,17 @@ class DrSpaamROS(Node):
         self._rviz_pub = self.create_publisher(
             Marker, topic, queue_size #, latch=latch
         )
-
+        self._rviz_detectron2_pub = self.create_publisher(
+            Marker, "dr_spaam_detectron2_viz", queue_size #, latch=latch
+        )
+	
         # Subscriber
         topic, queue_size = self.read_subscriber_param("scan")
         self._scan_sub = self.create_subscription(
             LaserScan, topic, self._scan_callback, queue_size
+        )
+        self._result_sub =  self.create_subscription(
+            Result, "result", self._result_callback, queue_size
         )
         self._img_pub = self.create_publisher(
             Image, "image", 1
@@ -97,6 +105,23 @@ class DrSpaamROS(Node):
         self.br = CvBridge()
         #self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
 
+    def _result_callback(self, msg):
+        dets_xy, dets_cls = [], []
+        for i, box in enumerate(msg.boxes):
+            if msg.class_names[i] == "person":
+                start_angle = (box.x_offset / 640.0) * 75
+                end_angle = ( (box.x_offset + box.width/2) / 640.0) * 75	  
+                self.get_logger().info("Box: %f %f" % (start_angle, end_angle))
+                angle = np.deg2rad(-start_angle + 75/2)
+                det = [ -3 * np.cos(angle), -3 * np.sin(angle), 0]
+                dets_xy.append(det)
+                dets_cls.append(1.0)
+        
+        rviz_msg = detections_to_rviz_marker(np.array(dets_xy), np.array(dets_cls), (0.0, 1.0, 0.0, 1.0))
+        rviz_msg.header = msg.header
+        rviz_msg.header.frame_id = "mobile_base_double_lidar"
+        self._rviz_detectron2_pub.publish(rviz_msg)
+    
     def _scan_callback(self, msg):
         if (
             self._dets_pub.get_subscription_count() == 0
@@ -172,7 +197,7 @@ class DrSpaamROS(Node):
         msg2 = self.br.cv2_to_imgmsg(image)
         self._img_pub.publish(msg2)
 
-def detections_to_rviz_marker(dets_xy, dets_cls):
+def detections_to_rviz_marker(dets_xy, dets_cls, color = (1.0, 0.0, 0.0, 1.0)):
     """
     @brief     Convert detection to RViz marker msg. Each detection is marked as
                a circle approximated by line segments.
@@ -191,8 +216,10 @@ def detections_to_rviz_marker(dets_xy, dets_cls):
 
     msg.scale.x = 0.03  # line width
     # red color
-    msg.color.r = 1.0
-    msg.color.a = 1.0
+    msg.color.r = color[0]
+    msg.color.g = color[1]
+    msg.color.b = color[2]    
+    msg.color.a = color[3]
 
     # circle
     r = 0.4
