@@ -86,6 +86,9 @@ class DrSpaamROS(Node):
         self._rviz_pub = self.create_publisher(
             Marker, topic, queue_size #, latch=latch
         )
+        self._rviz_detectron2_pub = self.create_publisher(
+            Marker, "dr_spaam_detectron2_viz", queue_size #, latch=latch
+        )
         self._img_pub = self.create_publisher(
             Image, "image", 1
 	)
@@ -112,10 +115,30 @@ class DrSpaamROS(Node):
         processed_image = self.model(current_frame)
         for det in processed_image.xyxy[0].cpu().numpy():
             if det[5] == 0:
-                cv2.rectangle(current_frame, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), (0,0,255),2)
+                cv2.rectangle(current_frame, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), (0,0,255), 2)
         cv2.imshow("result", current_frame)
         cv2.waitKey(2)        
-
+	
+        dets_xy, dets_cls = [], []
+        for det in processed_image.xyxy[0].cpu().numpy():
+            if det[5] == 0:
+                start_angle = (det[0] / 640.0) * 75
+                end_angle = (det[2] / 640.0) * 75
+                angle = ( (det[0] + (det[2] - det[0]) / 2) / 640.0) * 75	  
+                angle = np.deg2rad(-angle + 75 / 2)
+                d_z = 3.0
+                det = [ -d_z * np.cos(angle), -d_z * np.sin(angle), 0]
+                dets_xy.append(det)
+                dets_cls.append(1.0)
+        
+        rviz_msg = detections_to_rviz_marker(np.array(dets_xy), np.array(dets_cls), (0.0, 1.0, 0.0, 1.0))
+        rviz_msg.header = msg.header
+        rviz_msg.header.frame_id = "mobile_base_double_lidar"
+        self._rviz_detectron2_pub.publish(rviz_msg)
+	
+    def _depth_callback(self, msg):
+        self._last_depth = msg
+	
     def _scan_callback(self, msg):
         if (
             self._dets_pub.get_subscription_count() == 0
@@ -191,7 +214,7 @@ class DrSpaamROS(Node):
         msg2 = self.br.cv2_to_imgmsg(image)
         self._img_pub.publish(msg2)
 
-def detections_to_rviz_marker(dets_xy, dets_cls):
+def detections_to_rviz_marker(dets_xy, dets_cls, color = (1.0, 0.0, 0.0, 1.0)):
     """
     @brief     Convert detection to RViz marker msg. Each detection is marked as
                a circle approximated by line segments.
@@ -209,9 +232,10 @@ def detections_to_rviz_marker(dets_xy, dets_cls):
     msg.pose.orientation.w = 1.0
 
     msg.scale.x = 0.03  # line width
-    # red color
-    msg.color.r = 1.0
-    msg.color.a = 1.0
+    msg.color.r = color[0]
+    msg.color.g = color[1]
+    msg.color.b = color[2]    
+    msg.color.a = color[3]
 
     # circle
     r = 0.4
