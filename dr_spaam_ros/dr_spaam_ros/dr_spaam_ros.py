@@ -83,13 +83,16 @@ class DrSpaamROS(Node):
         self._dets_pub = self.create_publisher(
             PoseArray, topic, queue_size #, latch=latch
         )
+        self._yolo_dets_pub = self.create_publisher(
+            PoseArray, "/dr_spaam_yolo_detections", queue_size #, latch=latch
+        )	
 
         topic, queue_size, latch = self.read_publisher_param("rviz")
         self._rviz_pub = self.create_publisher(
             Marker, topic, queue_size #, latch=latch
         )
-        self._rviz_detectron2_pub = self.create_publisher(
-            Marker, "dr_spaam_detectron2_viz", queue_size #, latch=latch
+        self._rviz_yolo_pub = self.create_publisher(
+            Marker, "dr_spaam_yolo_viz", queue_size #, latch=latch
         )
         self._img_pub = self.create_publisher(
             Image, "image", 1
@@ -104,8 +107,13 @@ class DrSpaamROS(Node):
             LaserScan, topic, self._scan_callback, queue_size
         )
         self._img_sub = self.create_subscription(Image, 
-            '/camera/color/image_raw',
+            '/camera_rgbd/color/image_rect_color',
             self._image_callback,
+            1
+        )
+        self._depth_sub = self.create_subscription(Image, 
+            '/camera_rgbd/depth/image_rect',
+            self._depth_callback,
             1
         )
 
@@ -115,11 +123,11 @@ class DrSpaamROS(Node):
     def _image_callback(self, msg):
         current_frame = self.br.imgmsg_to_cv2(msg)
         processed_image = self.model(current_frame)
-        for det in processed_image.xyxy[0].cpu().numpy():
-            if det[5] == 0:
-                cv2.rectangle(current_frame, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), (0,0,255), 2)
-        cv2.imshow("result", current_frame)
-        cv2.waitKey(2)        
+        #for det in processed_image.xyxy[0].cpu().numpy():
+        #    if det[5] == 0:
+        #        cv2.rectangle(current_frame, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), (0,0,255), 2)
+        #cv2.imshow("result", current_frame)
+        #cv2.waitKey(2)        
 	
         dets_xy, dets_cls = [], []
         for det in processed_image.xyxy[0].cpu().numpy():
@@ -134,16 +142,23 @@ class DrSpaamROS(Node):
                     det_center_y = int(det[1] + (det[3]-det[1])/2)
                     det_center_x = int(det[0] + (det[2]-det[0])/2) 
                     depth_patch = self.br.imgmsg_to_cv2(self._last_depth, desired_encoding='passthrough')[det_center_y-10:det_center_y+10, det_center_x-10:det_center_x+10]
-                    d_z = np.mean(depth_patch)  
-
+                    d_z = np.mean(depth_patch) + 0.2  
+                    self.get_logger().info("d_z %f" % d_z)
                 det = [ -d_z * np.cos(angle), -d_z * np.sin(angle), 0]
                 dets_xy.append(det)
                 dets_cls.append(1.0)
         
+        # convert to ros msg and publish
+        dets_msg = detections_to_pose_array(np.array(dets_xy), np.array(dets_cls))
+        dets_msg.header = msg.header
+        dets_msg.header.frame_id = "mobile_base_double_lidar"
+        self._yolo_dets_pub.publish(dets_msg)
+	
+        # publish rviz marker
         rviz_msg = detections_to_rviz_marker(np.array(dets_xy), np.array(dets_cls), (0.0, 1.0, 0.0, 1.0))
         rviz_msg.header = msg.header
         rviz_msg.header.frame_id = "mobile_base_double_lidar"
-        self._rviz_detectron2_pub.publish(rviz_msg)
+        self._rviz_yolo_pub.publish(rviz_msg)
 	
     def _depth_callback(self, msg):
         self._last_depth = msg
