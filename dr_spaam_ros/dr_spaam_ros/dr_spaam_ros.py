@@ -14,6 +14,31 @@ from dr_spaam.detector import Detector
 from dr_spaam.utils import utils as u
 from cv_bridge import CvBridge
 
+from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
+                                               ConstantVelocity, RandomWalk
+from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
+from stonesoup.types.detection import TrueDetection
+from stonesoup.types.detection import Clutter
+from stonesoup.models.measurement.linear import LinearGaussian
+from stonesoup.predictor.kalman import KalmanPredictor
+from stonesoup.updater.kalman import KalmanUpdater
+from stonesoup.hypothesiser.probability import PDAHypothesiser
+from stonesoup.dataassociator.probability import JPDA
+from stonesoup.types.state import GaussianState
+from stonesoup.types.track import Track
+from stonesoup.types.array import StateVectors
+from stonesoup.functions import gm_reduce_single
+from stonesoup.types.update import GaussianStateUpdate
+from stonesoup.hypothesiser.distance import DistanceHypothesiser
+from stonesoup.measures import Mahalanobis
+from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
+from stonesoup.deleter.error import CovarianceBasedDeleter
+from stonesoup.types.state import GaussianState
+from stonesoup.initiator.simple import MultiMeasurementInitiator
+from stonesoup.plotter import Plotter
+from datetime import datetime, timedelta
+import seaborn as sns
+
 
 class DrSpaamROS(Node):
     """ROS node to detect pedestrian using DROW3 or DR-SPAAM."""
@@ -101,6 +126,9 @@ class DrSpaamROS(Node):
         # init YOLOv5
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')
 	
+        # init tracker
+        self._init_jpda()
+	
         # Subscriber
         topic, queue_size = self.read_subscriber_param("scan")
         self._scan_sub = self.create_subscription(
@@ -119,7 +147,38 @@ class DrSpaamROS(Node):
 
         self.br = CvBridge()
         #self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
-	
+
+    def _init_jpda(self):
+        palette = sns.color_palette() * 2
+        for i in range(len(palette)):
+            palette[i] = (palette[i][0] * 255, palette[i][1] * 255, palette[i][2] * 255)
+            
+        #all_measurements = []
+        tracks = set()
+        measurement_model = LinearGaussian(
+            ndim_state=4,
+            mapping=(0, 2),
+            noise_covar=np.array([[0.5, 0],   # 0.1 best, 0.01,0
+                                  [0, 0.5]])  
+            )
+        transition_model = CombinedLinearGaussianTransitionModel([RandomWalk(0.03),RandomWalk(0.03),   #0.001
+                                                                  RandomWalk(0.03),RandomWalk(0.03)])
+        predictor = KalmanPredictor(transition_model)
+        updater = KalmanUpdater(measurement_model)
+        hypothesiser = DistanceHypothesiser(predictor, updater, measure=Mahalanobis(), missed_distance=3)
+        data_associator = GNNWith2DAssignment(hypothesiser)
+        deleter = CovarianceBasedDeleter(covar_trace_thresh=10) #const best 3
+        initiator = MultiMeasurementInitiator(
+            prior_state=GaussianState([[0], [0], [0], [0]], np.diag([0, 1, 0, 1])),
+            measurement_model=measurement_model,
+            deleter=deleter,
+            data_associator=data_associator,
+            updater=updater,
+            min_points=2,
+            )
+        
+    start_time = datetime.now()
+
     def _image_callback(self, msg):
         current_frame = self.br.imgmsg_to_cv2(msg)
         processed_image = self.model(current_frame)
@@ -148,6 +207,37 @@ class DrSpaamROS(Node):
                 dets_xy.append(det)
                 dets_cls.append(1.0)
         
+        # generate measurements for JPDA
+        measurement_set = set()
+        all_measurements = []
+        for det in dets_xy:
+            measurement_set.add(TrueDetection(state_vector=det,
+                                              groundtruth_path=None,
+                                              timestamp=start_time + timedelta(seconds=line_count),
+                                              measurement_model=measurement_model))
+        all_measurements.append(measurement_set)
+        
+        # JPDA tracking
+        for n, measurements in enumerate(all_measurements):
+            # Calculate all hypothesis pairs and associate the elements in the best subset to the tracks.
+            hypotheses = data_associator.associate(tracks,
+                                                   measurements,
+                                                   start_time + timedelta(seconds=line_count))
+            associated_measurements = set()
+            for track in tracks:
+                hypothesis = hypotheses[track]
+                if hypothesis.measurement:
+                    post = updater.update(hypothesis)
+                    track.append(post)
+                    associated_measurements.add(hypothesis.measurement)
+                else:  # When data associator says no detections are good enough, we'll keep the prediction
+                    track.append(hypothesis.prediction)
+
+            # Carry out deletion and initiation
+            tracks -= deleter.delete_tracks(tracks)
+            tracks |= initiator.initiate(measurements - associated_measurements,
+                                         start_time + timedelta(seconds=n))
+                                         
         # convert to ros msg and publish
         dets_msg = detections_to_pose_array(np.array(dets_xy), np.array(dets_cls))
         dets_msg.header = msg.header
