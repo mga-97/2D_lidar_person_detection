@@ -76,6 +76,8 @@ class DrSpaamROS(Node):
         """
         @brief      Initialize ROS connection.
         """
+        self._last_depth = None
+	
         # Publisher
         topic, queue_size, latch = self.read_publisher_param("detections")
         self._dets_pub = self.create_publisher(
@@ -127,6 +129,13 @@ class DrSpaamROS(Node):
                 angle = ( (det[0] + (det[2] - det[0]) / 2) / 640.0) * 75	  
                 angle = np.deg2rad(-angle + 75 / 2)
                 d_z = 3.0
+                # compute avg depth of detection is depth is available
+                if self._last_depth is not None:
+                    det_center_y = int(det[1] + (det[3]-det[1])/2)
+                    det_center_x = int(det[0] + (det[2]-det[0])/2) 
+                    depth_patch = self.br.imgmsg_to_cv2(self._last_depth, desired_encoding='passthrough')[det_center_y-10:det_center_y+10, det_center_x-10:det_center_x+10]
+                    d_z = np.mean(depth_patch)  
+
                 det = [ -d_z * np.cos(angle), -d_z * np.sin(angle), 0]
                 dets_xy.append(det)
                 dets_cls.append(1.0)
