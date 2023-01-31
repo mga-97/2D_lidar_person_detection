@@ -1,6 +1,8 @@
+import cv2
 import numpy as np
 import rclpy
 import sys
+import torch
 
 from rclpy.node import Node
 from rclpy.parameter import Parameter
@@ -10,7 +12,6 @@ from visualization_msgs.msg import Marker
 
 from dr_spaam.detector import Detector
 from dr_spaam.utils import utils as u
-import cv2
 from cv_bridge import CvBridge
 
 
@@ -85,17 +86,35 @@ class DrSpaamROS(Node):
         self._rviz_pub = self.create_publisher(
             Marker, topic, queue_size #, latch=latch
         )
+        self._img_pub = self.create_publisher(
+            Image, "image", 1
+	)
 
+        # init YOLOv5
+        self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')
+	
         # Subscriber
         topic, queue_size = self.read_subscriber_param("scan")
         self._scan_sub = self.create_subscription(
             LaserScan, topic, self._scan_callback, queue_size
         )
-        self._img_pub = self.create_publisher(
-            Image, "image", 1
-	)
+        self._img_sub = self.create_subscription(Image, 
+            '/camera/color/image_raw',
+            self._image_callback,
+            1
+        )
+
         self.br = CvBridge()
         #self.video_out = cv2.VideoWriter('/tmp/output.avi', cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 20.0, (512,512))
+	
+    def _image_callback(self, msg):
+        current_frame = self.br.imgmsg_to_cv2(msg)
+        processed_image = self.model(current_frame)
+        for det in processed_image.xyxy[0].cpu().numpy():
+            if det[5] == 0:
+                cv2.rectangle(current_frame, (int(det[0]), int(det[1])), (int(det[2]), int(det[3])), (0,0,255),2)
+        cv2.imshow("result", current_frame)
+        cv2.waitKey(2)        
 
     def _scan_callback(self, msg):
         if (
