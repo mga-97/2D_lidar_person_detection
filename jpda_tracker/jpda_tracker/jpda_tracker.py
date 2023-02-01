@@ -10,7 +10,7 @@ from rclpy.node import Node
 from rclpy.parameter import Parameter
 from geometry_msgs.msg import Point, Pose, PoseArray
 from sensor_msgs.msg import Image
-from visualization_msgs.msg import Marker
+from visualization_msgs.msg import Marker, MarkerArray
 
 from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
                                                ConstantVelocity, RandomWalk
@@ -46,17 +46,17 @@ class JPDATracker(Node):
         self.br = CvBridge()
         
         self.dr_spaam_sub = self.create_subscription(
-            PoseArray, "dr_spaam_detections", self.dr_spaam_callback, 1
+            PoseArray, "dr_spaam_detections", self.dr_spaam_callback, 10
         )
         self.yolo_sub = self.create_subscription(
-            PoseArray, "dr_spaam_yolo_detections", self.yolo_callback, 1
+            PoseArray, "dr_spaam_yolo_detections", self.yolo_callback, 10
         )        
 
         self.tracks_img_pub = self.create_publisher(
-            Image, "tracks", 1
+            Image, "tracks", 10
 	    )
         self.marker_pub = self.create_publisher(
-            Marker, "tracks_marker", 1
+            MarkerArray, "tracks_marker_array", 10
         )
     
         # init JPDA
@@ -146,23 +146,7 @@ class JPDATracker(Node):
     def visualize_tracks(self, W=512, H=512, scale=30):
         image = np.zeros(shape=[H, W, 3], dtype=np.uint8)
 
-        marker_msg = Marker()
-        marker_msg.action = Marker.ADD
-        #msg.ns = "jpda_tracker"
-        marker_msg.id = 0
-        marker_msg.type = Marker.LINE_LIST
-        marker_msg.header.frame_id = "mobile_base_double_lidar"
-        # set quaternion so that RViz does not give warning
-        marker_msg.pose.orientation.x = 0.0
-        marker_msg.pose.orientation.y = 0.0
-        marker_msg.pose.orientation.z = 0.0
-        marker_msg.pose.orientation.w = 1.0
-        
-        marker_msg.scale.x = 0.03  # line width
-        marker_msg.color.r = 1.0
-        marker_msg.color.g = 0.0
-        marker_msg.color.b = 0.0 
-        marker_msg.color.a = 1.0
+        marker_msg = MarkerArray()
         
         # circle
         r = 0.1
@@ -174,20 +158,23 @@ class JPDATracker(Node):
                 if len(track) > 1:
                     for state in track[:]:
                         
-                        # start point of a segment
-                        p0 = Point()
-                        p0.x = state.state_vector[0] + xy_offsets[i, 0]
-                        p0.y = state.state_vector[2] + xy_offsets[i, 1]
-                        p0.z = 0.0
-                        marker_msg.points.append(p0)
-            
-                        # end point
-                        p1 = Point()
-                        p1.x = state.state_vector[0] + xy_offsets[i + 1, 0]
-                        p1.y = state.state_vector[2] + xy_offsets[i + 1, 1]
-                        p1.z = 0.0
-                        marker_msg.points.append(p1)
-            
+                        marker = Marker()
+                        marker.header.frame_id = "mobile_base_double_lidar"
+                        marker.type = marker.SPHERE
+                        marker.action = marker.ADD
+                        marker.scale.x = 0.2
+                        marker.scale.y = 0.2
+                        marker.scale.z = 0.2
+                        marker.color.a = 1.0
+                        marker.color.r = self.palette[i][0] / 255.0
+                        marker.color.g = self.palette[i][1] / 255.0
+                        marker.color.b = self.palette[i][2] / 255.0
+                        marker.pose.orientation.w = 1.0
+                        marker.pose.position.x = state.state_vector[0]
+                        marker.pose.position.y = state.state_vector[2]
+                        marker.pose.position.z = 0.0
+                        marker_msg.markers.append(marker)
+                       
                         x = int(W/2) + int(state.state_vector[2] * scale)
                         y = int(H/2) - int(state.state_vector[0] * scale)
                         if x>0 and x<W and y>0 and y<H:
@@ -199,13 +186,14 @@ class JPDATracker(Node):
                         cv2.circle(image, (x,y), int(track[-1].covar[0,0]*20), self.palette[i], 1)
 
         image = cv2.flip(image, 0)
-        image = cv2.putText(image, 'step: '+str(self.count), (5,15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)
-        #cv2.imshow("tracked people", image)
-        #cv2.waitKey(2)
-        
+        image = cv2.putText(image, 'step: '+str(self.count), (5,15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 1, cv2.LINE_AA)        
         image_msg = self.br.cv2_to_imgmsg(image)
         self.tracks_img_pub.publish(image_msg)
         
+        id = 0
+        for m in marker_msg.markers:
+            m.id = id
+            id += 1
         self.marker_pub.publish(marker_msg)
         
                         
