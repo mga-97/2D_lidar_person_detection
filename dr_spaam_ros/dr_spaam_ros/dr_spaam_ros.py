@@ -294,8 +294,12 @@ def detections_to_pose_array(dets_xy, dets_cls):
         # Detector uses following frame convention:
         # x forward, y rightward, z downward, phi is angle w.r.t. x-axis
         p = Pose()
-        p.position.x = float(d_xy[0])
-        p.position.y = float(d_xy[1])
+        if abs(d_xy[0]) > 1e5 or abs(d_xy[1]) > 1e5:
+            p.position.x = 1000.0
+            p.position.y = 1000.0
+        else:            
+            p.position.x = float(d_xy[0])
+            p.position.y = float(d_xy[1])
         p.position.z = 0.0
         pose_array.poses.append(p)
 
