@@ -143,6 +143,8 @@ class DrSpaamROS(Node):
                     det_center_x = int(det[0] + (det[2]-det[0])/2) 
                     depth_patch = self.br.imgmsg_to_cv2(self._last_depth, desired_encoding='passthrough')[det_center_y-10:det_center_y+10, det_center_x-10:det_center_x+10]
                     d_z = np.mean(depth_patch) + 0.2  
+                    if d_z != d_z:
+                        d_z = 7.0 # if depth is nan set to max range... TODO: handle this case better
                     self.get_logger().info("d_z %f" % d_z)
                 det = [ -d_z * np.cos(angle), -d_z * np.sin(angle), 0]
                 dets_xy.append(det)
@@ -246,7 +248,7 @@ def detections_to_rviz_marker(dets_xy, dets_cls, color = (1.0, 0.0, 0.0, 1.0)):
     msg = Marker()
     msg.action = Marker.ADD
     msg.ns = "dr_spaam_ros"
-    msg.id = 0
+    msg.id = 1
     msg.type = Marker.LINE_LIST
     #msg.header.frame_id = "mobile_base_double_lidar"
     # set quaternion so that RViz does not give warning
@@ -293,13 +295,9 @@ def detections_to_pose_array(dets_xy, dets_cls):
         d_xy = -d_xy
         # Detector uses following frame convention:
         # x forward, y rightward, z downward, phi is angle w.r.t. x-axis
-        p = Pose()
-        if abs(d_xy[0]) > 1e5 or abs(d_xy[1]) > 1e5:
-            p.position.x = 1000.0
-            p.position.y = 1000.0
-        else:            
-            p.position.x = float(d_xy[0])
-            p.position.y = float(d_xy[1])
+        p = Pose()         
+        p.position.x = float(d_xy[0])
+        p.position.y = float(d_xy[1])
         p.position.z = 0.0
         pose_array.poses.append(p)
 

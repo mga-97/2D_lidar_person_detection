@@ -55,6 +55,9 @@ class JPDATracker(Node):
         self.tracks_img_pub = self.create_publisher(
             Image, "tracks", 1
 	    )
+        self.marker_pub = self.create_publisher(
+            Marker, "tracks_marker", 1
+        )
     
         # init JPDA
         self.all_measurements = []
@@ -143,21 +146,52 @@ class JPDATracker(Node):
     def visualize_tracks(self, W=512, H=512, scale=30):
         image = np.zeros(shape=[H, W, 3], dtype=np.uint8)
 
+        marker_msg = Marker()
+        marker_msg.action = Marker.ADD
+        #msg.ns = "jpda_tracker"
+        marker_msg.id = 0
+        marker_msg.type = Marker.LINE_LIST
+        marker_msg.header.frame_id = "mobile_base_double_lidar"
+        # set quaternion so that RViz does not give warning
+        marker_msg.pose.orientation.x = 0.0
+        marker_msg.pose.orientation.y = 0.0
+        marker_msg.pose.orientation.z = 0.0
+        marker_msg.pose.orientation.w = 1.0
+        
+        marker_msg.scale.x = 0.03  # line width
+        marker_msg.color.r = 1.0
+        marker_msg.color.g = 0.0
+        marker_msg.color.b = 0.0 
+        marker_msg.color.a = 1.0
+        
+        # circle
+        r = 0.1
+        ang = np.linspace(0, 2 * np.pi, 20)
+        xy_offsets = r * np.stack((np.cos(ang), np.sin(ang)), axis=1)
+    
         if len(self.tracks) > 0:
             for i, track in enumerate(list(self.tracks)):
                 if len(track) > 1:
-                    # print("State:", track[0])
-                    # start_state = track[0]
-                    # start_x = int(W/2) + int(start_state.state_vector[2] * 20)
-                    # start_y = int(H/2) - int(start_state.state_vector[0] * 20)
                     for state in track[:]:
-                        # print(state.state_vector)
+                        
+                        # start point of a segment
+                        p0 = Point()
+                        p0.x = state.state_vector[0] + xy_offsets[i, 0]
+                        p0.y = state.state_vector[2] + xy_offsets[i, 1]
+                        p0.z = 0.0
+                        marker_msg.points.append(p0)
+            
+                        # end point
+                        p1 = Point()
+                        p1.x = state.state_vector[0] + xy_offsets[i + 1, 0]
+                        p1.y = state.state_vector[2] + xy_offsets[i + 1, 1]
+                        p1.z = 0.0
+                        marker_msg.points.append(p1)
+            
                         x = int(W/2) + int(state.state_vector[2] * scale)
                         y = int(H/2) - int(state.state_vector[0] * scale)
                         if x>0 and x<W and y>0 and y<H:
                             cv2.circle(image, (x,y), 2, self.palette[i], 1)
-                            # cv2.line(image, (start_x, start_y), (x,y), palette[i], 1)
-                            # start_x, start_y = x, y
                     x = int(W/2) + int(track[-1].state_vector[2] * scale)
                     y = int(H/2) - int(track[-1].state_vector[0] * scale)
                     if x>0 and x<W and y>0 and y<H:
@@ -171,6 +205,9 @@ class JPDATracker(Node):
         
         image_msg = self.br.cv2_to_imgmsg(image)
         self.tracks_img_pub.publish(image_msg)
+        
+        self.marker_pub.publish(marker_msg)
+        
                         
 def main(args=None):
     rclpy.init(args=args)
