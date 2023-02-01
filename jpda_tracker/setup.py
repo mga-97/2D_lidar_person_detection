@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'jpda_tracker = jpda_tracker.jpda_tracker:main'
         ],
     },
 )
