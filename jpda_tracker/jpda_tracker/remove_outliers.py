@@ -23,6 +23,7 @@ class OutlierRemover(Node):
 
         self.map_img = None
         self.map_origin = None
+        self.keepout_img = None
         self.yolo_poses = None
 
         # tf buffer init
@@ -33,6 +34,12 @@ class OutlierRemover(Node):
                     OccupancyGrid,
                     'map',
                     self.map_callback,
+                    10)
+
+        self.keepout_sub = self.create_subscription(
+                    OccupancyGrid,
+                    'keepout_filter_mask',
+                    self.keepout_callback,
                     10)
 
         self.dr_spaam_sub = self.create_subscription(
@@ -67,6 +74,14 @@ class OutlierRemover(Node):
                                     msg.info.origin.position.y,
                                 ]
                             )
+
+    def keepout_callback(self, msg):
+        self.keepout_img = cv2.flip(np.array(msg.data).reshape(
+                            (
+                                msg.info.height, 
+                                msg.info.width
+                            )
+                    ).astype(np.uint8), 0)
 
     def yolo_callback(self, msg):
         self.yolo_poses = msg.poses
@@ -141,6 +156,14 @@ class OutlierRemover(Node):
                                 cell_to_check[1]-step:cell_to_check[1]+step,
                                 cell_to_check[0]-step:cell_to_check[0]+step
                             ].sum()
+
+            if self.keepout_img is not None:
+                sum_obstacles += self.keepout_img[
+                                    cell_to_check[1]-step:cell_to_check[1]+step,
+                                    cell_to_check[0]-step:cell_to_check[0]+step
+                                ].sum()
+                cv2.imshow("mask", self.keepout_img)                
+
             if sum_obstacles < 9000:
                 # print("Inlier:", det_in_mapf)
                 # dets_msg.header = msg.header
