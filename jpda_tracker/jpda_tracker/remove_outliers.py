@@ -51,7 +51,7 @@ class OutlierRemover(Node):
 
         self.yolo_sub = self.create_subscription(
                     PoseArray, 
-                    'dr_spaam_yolo_detections', 
+                    'yolo_detections', 
                     self.yolo_callback, 
                     10
                 )
