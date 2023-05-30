@@ -34,11 +34,11 @@ class DrSpaamROS(Node):
         @brief      Reads parameters from ROS server.
         """
         self.declare_parameter("weight_file", "/code/humble/self_supervised_person_detection/checkpoints/ckpt_jrdb_ann_drow3_e40.pth")
-        self.declare_parameter("conf_thresh", 0.9)
+        self.declare_parameter("conf_thresh", 0.86)
         self.declare_parameter("stride", 2)
         self.declare_parameter("detector_model", "DROW3")
         self.declare_parameter("panoramic_scan", True)	
-        self.declare_parameter("use_gpu", False)	
+        self.declare_parameter("use_gpu", True)	
 		
         self.weight_file = str(self.get_parameter("weight_file").value)
         self.conf_thresh = float(self.get_parameter("conf_thresh").value)
@@ -51,7 +51,7 @@ class DrSpaamROS(Node):
         """
         @brief      Convenience function to read subscriber parameter.
         """
-        self.declare_parameter("subscriber/" + name + "/topic", "laser")
+        self.declare_parameter("subscriber/" + name + "/topic", "laser_local")
         self.declare_parameter("subscriber/" + name + "/queue_size", 10)
 	
         topic = str(self.get_parameter("subscriber/" + name + "/topic").value)
