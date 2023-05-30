@@ -147,9 +147,10 @@ class OutlierRemover(Node):
             det_in_mapf_pixels[1] = -det_in_mapf_pixels[1]
 
             cell_to_check = det_in_mapf_pixels + np.array([map_offset_x, map_offset_y])
-
-            cv2.circle(img, tuple(cell_to_check), 10, (0,0,20), 3)
-
+            try:
+                cv2.circle(img, tuple(cell_to_check), 10, (0,0,20), 3)
+            except:
+                print("cell has wrong format")
             # if map cell is free
             step = 10
             sum_obstacles = self.map_img[
@@ -162,21 +163,18 @@ class OutlierRemover(Node):
                                     cell_to_check[1]-step:cell_to_check[1]+step,
                                     cell_to_check[0]-step:cell_to_check[0]+step
                                 ].sum()
-                cv2.imshow("mask", self.keepout_img)                
-
             if sum_obstacles < 9000:
                 # print("Inlier:", det_in_mapf)
                 # dets_msg.header = msg.header
-                # dets_msg.header.frame_id = "mobile_base_double_lidar"
+                # dets_msg.header.frame_id = "mobile_base_double_lidar" 
                 pose_array.poses.append(pose)
-                cv2.circle(img, tuple(cell_to_check), 10, (0,0,255), 3)
-
+                try:
+                    cv2.circle(img, tuple(cell_to_check), 10, (0,0,255), 3)
+                except:
+                    print("cell has wrong format")
         # convert to ros msg and publish
         pose_array.header = msg.header
         self.inliers_pub.publish(pose_array)
-
-        cv2.imshow("inliers", img)
-        cv2.waitKey(1)
 
 def main(args=None):
     rclpy.init(args=args)

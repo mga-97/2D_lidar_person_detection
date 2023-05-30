@@ -46,17 +46,17 @@ class JPDATracker(Node):
         self.br = CvBridge()
         
         self.dr_spaam_sub = self.create_subscription(
-            PoseArray, "dr_spaam_detections", self.dr_spaam_callback, 10
+            PoseArray, "inliers", self.dr_spaam_callback, 10
         )
         self.yolo_sub = self.create_subscription(
-            PoseArray, "dr_spaam_yolo_detections", self.yolo_callback, 10
+            PoseArray, "yolvdsdvdo_detections", self.yolo_callback, 10
         )        
 
         self.tracks_img_pub = self.create_publisher(
-            Image, "tracks", 10
+            Image, "tracks_new", 10
 	    )
         self.marker_pub = self.create_publisher(
-            MarkerArray, "tracks_marker_array", 10
+            MarkerArray, "tracks_marker_array_new", 10
         )
     
         # init JPDA
@@ -70,8 +70,8 @@ class JPDATracker(Node):
                                   [0, 0.5]])  
             )
         # transition_model = CombinedLinearGaussianTransitionModel([ConstantVelocity(0.000001), ConstantVelocity(0.000001)])
-        self.transition_model = CombinedLinearGaussianTransitionModel([RandomWalk(0.03),RandomWalk(0.03),   #0.001
-                                                                  RandomWalk(0.03),RandomWalk(0.03)])
+        self.transition_model = CombinedLinearGaussianTransitionModel([RandomWalk(0.001),RandomWalk(0.001),   #0.001
+                                                                  RandomWalk(0.001),RandomWalk(0.0011)])
         self.predictor = KalmanPredictor(self.transition_model)
         self.updater = KalmanUpdater(self.measurement_model)
         self.hypothesiser = DistanceHypothesiser(self.predictor, self.updater, measure=Mahalanobis(), missed_distance=3)
@@ -156,16 +156,16 @@ class JPDATracker(Node):
         if len(self.tracks) > 0:
             for i, track in enumerate(list(self.tracks)):
                 if len(track) > 1:
-                    for state in track[:]:
+                    for state in track[-1:]:
                         
                         marker = Marker()
-                        marker.header.frame_id = "mobile_base_double_lidar"
+                        marker.header.frame_id = "base_link"
                         marker.type = marker.SPHERE
                         marker.action = marker.ADD
-                        marker.scale.x = 0.2
-                        marker.scale.y = 0.2
-                        marker.scale.z = 0.2
-                        marker.color.a = 1.0
+                        marker.scale.x = 0.2 + state.covar[0,0]
+                        marker.scale.y = 0.2 + state.covar[0,0]
+                        marker.scale.z = 0.2 + state.covar[0,0]
+                        marker.color.a = max(0.0, 1.0-state.covar[0,0])
                         marker.color.r = self.palette[i][0] / 255.0
                         marker.color.g = self.palette[i][1] / 255.0
                         marker.color.b = self.palette[i][2] / 255.0

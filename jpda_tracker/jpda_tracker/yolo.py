@@ -42,14 +42,15 @@ class YoloDetector(Node):
     def combined_callback(self, img_msg, depth_msg):
         current_frame = self.br.imgmsg_to_cv2(img_msg)
         processed_image = self.model(current_frame)       
-	 
+	
+        fov = 74        
         dets_xy, dets_cls = [], []
         for det in processed_image.xyxy[0].cpu().numpy():
             if det[5] == 0: #if class=person
-                start_angle = (det[0] / 640.0) * 75
-                end_angle = (det[2] / 640.0) * 75
-                angle = ( (det[0] + (det[2] - det[0]) / 2) / 640.0) * 75	  
-                angle = np.deg2rad(-angle + 75 / 2)
+                start_angle = (det[0] / 640.0) * fov
+                end_angle = (det[2] / 640.0) * fov
+                angle = ( (det[0] + (det[2] - det[0]) / 2) / 640.0) * fov	  
+                angle = np.deg2rad(-angle + fov / 2)
                 d_z = 3.0
 		
                 # compute avg depth of detection
