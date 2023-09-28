@@ -1,71 +1,42 @@
-from datetime import datetime, timedelta
 import numpy as np
 import rclpy
-import cv2
-import quaternion
-import seaborn as sns
 import sys
 
-from cv_bridge import CvBridge
 from rclpy.node import Node
 from rclpy.parameter import Parameter
 from rclpy.duration import Duration
-from geometry_msgs.msg import Point, Pose, PoseArray
+from geometry_msgs.msg import Pose, PoseArray
 from sensor_msgs.msg import Image
+from std_msgs.msg import Bool
 from visualization_msgs.msg import Marker, MarkerArray
-
-from tf2_ros import TransformException
-from tf2_ros.buffer import Buffer
-from tf2_ros.transform_listener import TransformListener
-
-from stonesoup.models.transition.linear import CombinedLinearGaussianTransitionModel, \
-                                               ConstantVelocity, RandomWalk
-from stonesoup.types.groundtruth import GroundTruthPath, GroundTruthState
-from stonesoup.types.detection import TrueDetection
-from stonesoup.types.detection import Clutter
-from stonesoup.models.measurement.linear import LinearGaussian
-from stonesoup.predictor.kalman import KalmanPredictor
-from stonesoup.updater.kalman import KalmanUpdater
-from stonesoup.hypothesiser.probability import PDAHypothesiser
-from stonesoup.dataassociator.probability import JPDA
-from stonesoup.types.state import GaussianState
-from stonesoup.types.track import Track
-from stonesoup.types.array import StateVectors
-from stonesoup.functions import gm_reduce_single
-from stonesoup.types.update import GaussianStateUpdate
-from stonesoup.hypothesiser.distance import DistanceHypothesiser
-from stonesoup.measures import Mahalanobis
-from stonesoup.dataassociator.neighbour import GNNWith2DAssignment
-from stonesoup.deleter.error import CovarianceBasedDeleter
-from stonesoup.types.state import GaussianState
-from stonesoup.initiator.simple import MultiMeasurementInitiator
 
 
 class FollowingGroupDetector(Node):
     def __init__(self):
         super().__init__("following_group_detector_node")
         
-        # tf buffer init
-        self.tf_buffer = Buffer()
-        self.tf_listener = TransformListener(self.tf_buffer, self)
-        
+        # subscribers
         self.inliers_sub = self.create_subscription(
             PoseArray, "inliers", self.inliers_callback, 10
         )
         
+        #publishers
         self.marker_pub = self.create_publisher(
             MarkerArray, "detected_group_marker", 10
         )
+        self.is_followed_pub = self.create_publisher(
+            Bool, "is_followed", 10)
         
         self.moving_avg_group = None # format: centerx, centery, convariance in robot frame
          
-        self.start_time = datetime.now()
         self.count = 0
 
     def inliers_callback(self, msg):            
         group_poses = []    
         group_center = None
         group_covariance = None
+        is_followed = Bool()
+        is_followed.data = False
         
         for pose in msg.poses:
             x = pose.position.x
@@ -73,7 +44,11 @@ class FollowingGroupDetector(Node):
             if x < -0.5 and x > -6 and np.abs(y) < 3:
                 group_poses.append([x,y])
         
+        
         if len(group_poses) > 0:   
+        
+            is_followed.data = True
+            
             group_center = np.mean(group_poses,axis=0)
             group_covariance = np.max(np.std(group_poses,axis=0))    
             #print(group_covariance)
@@ -119,6 +94,8 @@ class FollowingGroupDetector(Node):
             marker_msg.markers.append(marker)
                        
             self.marker_pub.publish(marker_msg)
+        
+        self.is_followed_pub.publish(is_followed)   
         
 def main(args=None):
     rclpy.init(args=args)
