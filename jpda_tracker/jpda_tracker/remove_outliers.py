@@ -11,6 +11,7 @@ from geometry_msgs.msg import PoseArray
 from nav_msgs.msg import OccupancyGrid
 
 from rclpy.node import Node
+from rclpy.qos import QoSProfile, QoSDurabilityPolicy
 
 from tf2_ros import TransformException
 from tf2_ros.buffer import Buffer
@@ -30,17 +31,21 @@ class OutlierRemover(Node):
         self.tf_buffer = Buffer()
         self.tf_listener = TransformListener(self.tf_buffer, self)
 
+        latching_qos = QoSProfile(depth=1, durability=QoSDurabilityPolicy.RMW_QOS_POLICY_DURABILITY_TRANSIENT_LOCAL)
+        
         self.map_sub = self.create_subscription(
                     OccupancyGrid,
                     'map',
                     self.map_callback,
-                    10)
+                    qos_profile=latching_qos
+                    )
 
         self.keepout_sub = self.create_subscription(
                     OccupancyGrid,
                     'keepout_filter_mask',
                     self.keepout_callback,
-                    10)
+                    qos_profile=latching_qos
+                    )
 
         self.dr_spaam_sub = self.create_subscription(
                     PoseArray, 
@@ -105,6 +110,9 @@ class OutlierRemover(Node):
         # add yolo poses
         if self.yolo_poses is not None:
             for yolo_pose in self.yolo_poses:
+                if np.sqrt(yolo_pose.position.x **2 + yolo_pose.position.y **2) > 2.0:
+                    continue
+                
                 new_pose = True
                 for pose in msg.poses:
                     yp = np.array([yolo_pose.position.x, yolo_pose.position.y])
@@ -163,7 +171,7 @@ class OutlierRemover(Node):
                                     cell_to_check[1]-step:cell_to_check[1]+step,
                                     cell_to_check[0]-step:cell_to_check[0]+step
                                 ].sum()
-            if sum_obstacles < 9000:
+            if sum_obstacles < 7000:
                 # print("Inlier:", det_in_mapf)
                 # dets_msg.header = msg.header
                 # dets_msg.header.frame_id = "mobile_base_double_lidar" 
