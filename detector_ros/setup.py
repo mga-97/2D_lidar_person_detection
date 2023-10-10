@@ -1,6 +1,6 @@
 from setuptools import setup
 
-package_name = 'jpda_tracker'
+package_name = 'detector_ros'
 
 setup(
     name=package_name,
@@ -16,12 +16,12 @@ setup(
     zip_safe=True,
     maintainer='Stefano Rosa',
     maintainer_email='stefano.rosa@iit.it',
-    description='JPDA data association for tracking PoseArray measurements',
+    description='Yolo for person detection and JPDA data association for tracking PoseArray measurements',
     license='TODO: License declaration',
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
-            'jpda_tracker = jpda_tracker.jpda_tracker:main'
+            'jpda_tracker = detector_ros.jpda_tracker:main'
         ],
     },
 )
