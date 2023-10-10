@@ -14,7 +14,6 @@ def generate_launch_description():
         
     node=Node(
         package = 'dr_spaam_ros',
-        name = 'dr_spaam_ros_node',
         executable = 'dr_spaam_ros',
         parameters = [config]
     )

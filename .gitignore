@@ -31,3 +31,5 @@ output/
 results/
 result_*/
 wandb
+dr_spaam_ros/install/
+dr_spaam_ros/log/
