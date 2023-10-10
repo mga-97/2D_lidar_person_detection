@@ -5,4 +5,4 @@ requests
 datetime
 stonesoup
 seaborn
-
+numpy-quaternion

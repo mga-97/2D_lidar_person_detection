@@ -3,7 +3,7 @@
 <package format="3">
   <name>detector_ros</name>
   <version>1.0.0</version>
-  <description>JPDA data association for tracking PoseArray measurements</description>
+  <description>Yolo for person detection and JPDA data association for tracking PoseArray measurements</description>
   <maintainer email="stefano.rosa@iit.it">Stefano Rosa</maintainer>
   <license>TODO: License declaration</license>
 
