@@ -1,10 +1,10 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>detector_ros</name>
-  <version>1.0.0</version>
-  <description>Yolo for person detection</description>
-  <maintainer email="stefano.rosa@iit.it">Stefano Rosa</maintainer>
+  <name>tracker_ros</name>
+  <version>0.0.0</version>
+  <description>JPDA data association for tracking PoseArray measurements</description>
+  <maintainer email="misael.gonzalez.almeida@gmail.com">user1</maintainer>
   <license>TODO: License declaration</license>
 
   <test_depend>ament_copyright</test_depend>

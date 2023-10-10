@@ -1,0 +1,8 @@
+ipython
+tqdm
+pandas 
+requests
+datetime
+stonesoup
+seaborn
+numpy-quaternion
