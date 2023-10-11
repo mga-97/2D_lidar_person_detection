@@ -19,6 +19,7 @@ class YoloDetector(Node):
 
     def __init__(self):
         super().__init__("yolo_detector_node")
+        self._read_params()
 
         self.br = CvBridge()
 
@@ -38,19 +39,25 @@ class YoloDetector(Node):
         self.depth_sub = message_filters.Subscriber(self, Image, "/cer/realsense_repeater/depth_image")
         self.tss = message_filters.ApproximateTimeSynchronizer([self.img_sub, self.depth_sub], 1, slop=.1)
         self.tss.registerCallback(self.combined_callback)
+    
+    def _read_params(self):
+        self.declare_parameter("fov", 74)
+        self.declare_parameter("img_width", 640.0)
+
+        self.fov = int(self.get_parameter("fov").value)
+        self.img_width= float(self.get_parameter("img_width").value)
 	
     def combined_callback(self, img_msg, depth_msg):
         current_frame = self.br.imgmsg_to_cv2(img_msg)
         processed_image = self.model(current_frame)       
 	
-        fov = 74        
         dets_xy, dets_cls = [], []
         for det in processed_image.xyxy[0].cpu().numpy():
             if det[5] == 0: #if class=person
-                start_angle = (det[0] / 640.0) * fov
-                end_angle = (det[2] / 640.0) * fov
-                angle = ( (det[0] + (det[2] - det[0]) / 2) / 640.0) * fov	  
-                angle = np.deg2rad(-angle + fov / 2)
+                start_angle = (det[0] / self.img_width) * self.fov
+                end_angle = (det[2] / self.img_width) * self.fov
+                angle = ( (det[0] + (det[2] - det[0]) / 2) / self.img_width) * self.fov	  
+                angle = np.deg2rad(-angle + self.fov / 2)
                 d_z = 3.0
 		
                 # compute avg depth of detection

@@ -1,0 +1,4 @@
+yolo:
+  ros__parameters:
+    fov: 74
+    img_width: 640.0
