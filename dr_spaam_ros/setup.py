@@ -24,7 +24,8 @@ setup(
  tests_require=['pytest'],
  entry_points={
      'console_scripts': [
-             'dr_spaam_ros = dr_spaam_ros.dr_spaam_ros:main'
+             'dr_spaam_ros = dr_spaam_ros.dr_spaam_ros:main',
+             'yolo = dr_spaam_ros.yolo:main'
      ],
    },
 )
