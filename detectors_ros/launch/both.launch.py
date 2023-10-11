@@ -9,13 +9,13 @@ from launch_ros.actions import Node
 def generate_launch_description():
     yolo = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('dr_spaam_ros'), 'launch'),
+            get_package_share_directory('detectors_ros'), 'launch'),
             '/yolo.launch.py'])
     )
 
     dr_spaam = IncludeLaunchDescription(
         PythonLaunchDescriptionSource([os.path.join(
-            get_package_share_directory('dr_spaam_ros'), 'launch'),
+            get_package_share_directory('detectors_ros'), 'launch'),
             '/dr_spaam_ros.launch.py'])
     )
         

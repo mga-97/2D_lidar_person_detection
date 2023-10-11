@@ -13,6 +13,7 @@
 *.pyc
 *.tfevents*
 *.yml
+*.pt*
 
 .idea/
 # .vscode/

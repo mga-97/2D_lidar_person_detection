@@ -2,7 +2,7 @@ import os
 from glob import glob
 from setuptools import setup
 
-package_name = 'dr_spaam_ros'
+package_name = 'detectors_ros'
 
 setup(
  name=package_name,
@@ -24,8 +24,8 @@ setup(
  tests_require=['pytest'],
  entry_points={
      'console_scripts': [
-             'dr_spaam_ros = dr_spaam_ros.dr_spaam_ros:main',
-             'yolo = dr_spaam_ros.yolo:main'
+             'dr_spaam_ros = detectors_ros.dr_spaam_ros:main',
+             'yolo = detectors_ros.yolo:main'
      ],
    },
 )

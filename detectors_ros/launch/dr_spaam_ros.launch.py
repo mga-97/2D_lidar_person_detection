@@ -6,10 +6,16 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     ld = LaunchDescription()
+    config = os.path.join(
+        get_package_share_directory('detectors_ros'),
+        'config',
+        'dr_spaam_ros.yaml'
+        )
         
     node=Node(
-        package = 'dr_spaam_ros',
-        executable = 'yolo',
+        package = 'detectors_ros',
+        executable = 'dr_spaam_ros',
+        parameters = [config]
     )
     ld.add_action(node)
     return ld
