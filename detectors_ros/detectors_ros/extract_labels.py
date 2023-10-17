@@ -140,7 +140,7 @@ class PeopleSegmenting(Node):
                                     
         self.label_writer.writerow(labels)
         
-        image_msg = self.br.cv2_to_imgmsg(yolo_img)
+        image_msg = self.br.cv2_to_imgmsg(cv2.cvtColor(yolo_img, cv2.COLOR_BGR2RGB))
         self.yolo_pub.publish(image_msg)
                 
 
