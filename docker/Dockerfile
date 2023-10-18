@@ -209,7 +209,7 @@ USER $robotology_install_user
 RUN echo "PS1='\[\e]0;\u \w\a\]\[\033[01;32m\]\u\[\033[00m\] \[\033[01;34m\]\w\[\033[00m\] \$ '" >> /home/$robotology_install_user/.bashrc
 RUN echo "source /opt/ros/$ros_distro/setup.bash" >> /home/user1/.bashrc
 RUN echo "source /home/user1/robotology/yarp-devices-ros2/ros2_interfaces_ws/install/local_setup.bash" >> /home/user1/.bashrc
-ENV PATH=$PATH:$YARP_DIR/bin:$navigation_DIR/bin:$CER_DIR/bin:$ICUB_DIR/bin:$ICUB_DIR:$robotology_install_folder/iCubContrib/bin:/home/user1/robotology/Groot/build:/home/user1/tour-guide-robot/build/bin
+ENV PATH=$PATH:$YARP_DIR/bin:$navigation_DIR/bin:$CER_DIR/bin:$ICUB_DIR/bin:$ICUB_DIR:$robotology_install_folder/iCubContrib/bin:/home/user1/robotology/Groot/build:/home/user1/tour-guide-robot/build/bin:/home/user1/.local/bin
 ENV DISPLAY=:1
 ENV YARP_DATA_DIRS=$YARP_DIR/share/yarp:$ICUB_DIR/share/iCub:$navigation_DIR/share/navigation:$user1_home/tour-guide-robot/build/share/tour-guide-robot:$CER_DIR/share/CER:$ICUBcontrib_DIR/share/ICUBcontrib:$robotology_install_folder/yarp-devices-ros2/build/share/yarp:$robotology_install_folder/yarp-devices-ros2/build/share/yarp-devices-ros2
 ENV LD_LIBRARY_PATH=$robotology_install_folder/yarp/build/lib/yarp/
@@ -230,17 +230,16 @@ RUN sudo chown -R $robotology_install_user:$robotology_install_user /opt/ros && 
 
 # Person detection with laser sensor
 WORKDIR ${user1_home}
-RUN mkdir CONVINCE && mkdir CONVINCE/ros2_person_det_ws && mkdir CONVINCE/ros2_person_det_ws/src && cd CONVINCE/ros2_person_det_ws/src
-RUN git clone https://github.com/mga-97/2D_lidar_person_detection.git -b tidy
-RUN export PATH="/home/user1/.local/bin:$PATH"
-RUN pip3 install -r 2D_lidar_person_detection/requirements.txt && cd .. && colcon build
+USER $robotology_install_user
+RUN mkdir CONVINCE && mkdir CONVINCE/ros2_person_det_ws && mkdir CONVINCE/ros2_person_det_ws/src && cd CONVINCE/ros2_person_det_ws/src && git clone https://github.com/mga-97/2D_lidar_person_detection.git -b tidy
+RUN cd CONVINCE/ros2_person_det_ws &&  pip3 install -r src/2D_lidar_person_detection/requirements.txt && colcon build
 RUN echo "source /home/user1/CONVINCE/ros2_person_det_ws/install/local_setup.bash" >> /home/user1/.bashrc
 RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 
 # DROW and DR-SPAAM
 WORKDIR ${user1_home}/CONVINCE/ros2_person_det_ws
 RUN pip3 install gdown
-RUN mkdir weights && cd weights && gdown 1QuB9mwm8h46vIiynFsDKKxlEiUYC0quN && gdown 1OI99VfUBkmRSijgmMYYku9Pc_nS3v8sj
+RUN mkdir weights && cd weights && /bin/bash -c "gdown 1QuB9mwm8h46vIiynFsDKKxlEiUYC0quN"  && /bin/bash -c "gdown 1gH_pdxUC8diIFUe3_Ky8QiVVCyiR3500"
 
 # Konstantinos Karapas stuff only
 WORKDIR ${user1_home}
