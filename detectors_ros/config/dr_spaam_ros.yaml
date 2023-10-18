@@ -1,6 +1,6 @@
 dr_spaam_ros:
   ros__parameters:
-    weight_file: "/home/user1/ckpt_jrdb_ann_ft_dr_spaam_e20.pth"
+    weight_file: "/home/user1/CONVINCE/ros2_person_det_ws/weights/ckpt_jrdb_ann_dr_spaam_e20.pth"
     detector_model: "DR-SPAAM"  # DROW3 or DR-SPAAM
     conf_thresh: 0.7
     stride: 1  # use this to skip laser points
