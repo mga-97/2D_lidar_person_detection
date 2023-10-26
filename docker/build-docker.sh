@@ -1,1 +1,0 @@
-sudo docker build --build-arg base_img=ubuntu:22.04 --build-arg ros_distro=iron -t person_det/r1_crowd:iron_devel .
