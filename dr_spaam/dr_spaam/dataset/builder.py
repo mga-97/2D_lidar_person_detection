@@ -2,7 +2,7 @@ from torch.utils.data import DataLoader
 
 
 def get_dataloader(split, batch_size, num_workers, shuffle, dataset_cfg):
-    if "DROW" in dataset_cfg["DataHandle"]["data_dir"]:
+    if "DROW" in dataset_cfg["DataHandle"]["data_dir"] or "r1" in dataset_cfg["DataHandle"]["data_dir"]:
         from .drow_dataset import DROWDataset
 
         ds = DROWDataset(split, dataset_cfg)
