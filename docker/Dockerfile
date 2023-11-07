@@ -234,7 +234,7 @@ USER $robotology_install_user
 RUN mkdir CONVINCE && mkdir CONVINCE/ros2_person_det_ws && mkdir CONVINCE/ros2_person_det_ws/src && cd CONVINCE/ros2_person_det_ws/src && git clone https://github.com/mga-97/2D_lidar_person_detection.git -b tidy
 RUN cd CONVINCE/ros2_person_det_ws &&  pip3 install -r src/2D_lidar_person_detection/requirements.txt && colcon build
 RUN echo "source /home/user1/CONVINCE/ros2_person_det_ws/install/local_setup.bash" >> /home/user1/.bashrc
-RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+RUN pip3 install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu117
 
 # DROW and DR-SPAAM
 WORKDIR ${user1_home}/CONVINCE/ros2_person_det_ws
