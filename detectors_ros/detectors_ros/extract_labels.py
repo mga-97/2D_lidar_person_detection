@@ -21,8 +21,10 @@ class PeopleSegmenting(Node):
 
         scancsvfile = open('scans.csv', 'w', newline='')
         self.scan_writer = csv.writer(scancsvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        labelcsvfile = open('labels.csv', 'w', newline='')
-        self.label_writer = csv.writer(labelcsvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        labelcsvfile = open('point_labels.csv', 'w', newline='')
+        self.point_label_writer = csv.writer(labelcsvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
+        self.xy_det_file = open('xy_labels.txt', 'w')
+        self.centre_angles = open('centre_angles.txt', 'w')
                 
         # init YOLOv5
         self.model = torch.hub.load('ultralytics/yolov5', 'yolov5m')
@@ -59,7 +61,8 @@ class PeopleSegmenting(Node):
                
         # write scan csv
         self.scan_writer.writerow(scan_msg.ranges)
-        
+
+        angles_centre_dets = []
         # init labels
         labels = np.zeros((len(scan_msg.ranges),), dtype=int)
             
@@ -72,6 +75,7 @@ class PeopleSegmenting(Node):
 
                 start_angle = (det[0] / 640.0) * hfov
                 end_angle = (det[2] / 640.0) * hfov
+                angular_width = end_angle - start_angle
                 angle = ( (det[0]  + (det[2] - det[0]) / 2) / 640.0) * hfov     
                 angle = np.deg2rad(-angle + hfov / 2)
            
@@ -98,10 +102,13 @@ class PeopleSegmenting(Node):
                 for n in range(len(ranges)):
                     if ranges[n] > 5.0:
                         ranges[n] = float("NaN")
-                # get subscan
+
+                angles_centre_dets.append(angle)
+
+                # get point labels    
+                window = int(np.deg2rad(angular_width) / scan_msg.angle_increment * 4) # calculate width in terms of points
                 if angle > 0.02:
                     angle += np.deg2rad(4)
-                    window = 40            
                     angle_index =  int(angle / scan_msg.angle_increment)
                     start_index = max(0, angle_index-window)
                     end_index =  min(angle_index+window, len(scan_msg.ranges))
@@ -121,7 +128,6 @@ class PeopleSegmenting(Node):
                 if angle < -0.02:
                     angle = -angle
                     angle -= np.deg2rad(4)
-                    window = 40            
                     angle_index =  len(scan_msg.ranges) - int(angle / scan_msg.angle_increment)
                     start_index = angle_index-window
                     end_index =  angle_index+window
@@ -138,10 +144,15 @@ class PeopleSegmenting(Node):
                     labels[start_index:end_index] = 1
                     self.scan_pub.publish(new_scan)
                                     
-        self.label_writer.writerow(labels)
+        self.point_label_writer.writerow(labels)
+        self.xy_det_file.write(str(dets_xy) + '\n')
+        self.centre_angles.write(f'{str(angles_centre_dets)}\n')
         
-        image_msg = self.br.cv2_to_imgmsg(cv2.cvtColor(yolo_img, cv2.COLOR_BGR2RGB))
+        rgb = cv2.cvtColor(yolo_img, cv2.COLOR_BGR2RGB)
+        image_msg = self.br.cv2_to_imgmsg(rgb)
         self.yolo_pub.publish(image_msg)
+        cv2.imwrite(f'./images/det{self.count}.jpg', rgb)
+        self.count += 1
                 
 
 
@@ -149,8 +160,9 @@ def main(args=None):
     rclpy.init(args=args)
     node = PeopleSegmenting()
     rclpy.spin(node)
-    self.scan_writer.close()
-    self.label_writer.close()
+    node.scan_writer.close()
+    node.point_label_writer.close()
+    node.centre_angles.close()
     rclpy.shutdown()
 
 if __name__ == '__main__':
