@@ -36,12 +36,16 @@ get_opts()
                 shift
                 ;;
             -r|--ros_distro)
+                shift
                 ROS_DISTRO=$1
                 shift
                 ;;
             -h|--help)
                 usage
-                exit
+                ;;
+            *)
+                echo "Unsupported arg"
+                usage
                 ;;
         esac
     done
