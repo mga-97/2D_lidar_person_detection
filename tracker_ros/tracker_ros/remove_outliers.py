@@ -61,9 +61,24 @@ class OutlierRemover(Node):
                     self.yolo_callback, 
                     10
                 )
+        
+        self.back_subtraction_sub = self.create_subscription(
+                    PoseArray, 
+                    'back_sub_dets', 
+                    self.back_sub_callback, 
+                    10
+                )
 
         self.inliers_pub = self.create_publisher(
             PoseArray, "inliers", 10
+        )
+
+        self.back_sub_inliers_pub = self.create_publisher(
+            PoseArray, "back_sub_inliers", 10
+        )
+
+        self.back_sub_inliers_pub = self.create_publisher(
+            PoseArray, "back_sub_inliers", 10
         )
 
     def map_callback(self, msg):
@@ -97,9 +112,21 @@ class OutlierRemover(Node):
                             )
 
     def yolo_callback(self, msg):
-        self.yolo_poses = msg.poses
+        poses = self.remove_outliers(msg)
+        if poses is not None:
+            self.inliers_pub.publish(poses)
 
     def dr_spaam_callback(self, msg):
+        poses = self.remove_outliers(msg)
+        if poses is not None:
+            self.inliers_pub.publish(poses)
+
+    def back_sub_callback(self, msg):
+        poses = self.remove_outliers(msg)
+        if poses is not None:
+            self.back_sub_inliers_pub.publish(poses)
+
+    def remove_outliers(self, msg):
         if self.map_img is None:
             return
 
@@ -113,23 +140,6 @@ class OutlierRemover(Node):
         except TransformException:
             print("Could not transform!")
             return
-
-        poses = deepcopy(msg.poses)
-        # add yolo poses
-        if self.yolo_poses is not None:
-            for yolo_pose in self.yolo_poses:
-                if np.sqrt(yolo_pose.position.x **2 + yolo_pose.position.y **2) > 2.0:
-                    continue
-                
-                new_pose = True
-                for pose in msg.poses:
-                    yp = np.array([yolo_pose.position.x, yolo_pose.position.y])
-                    p = np.array([pose.position.x, pose.position.y])
-
-                    if np.linalg.norm(yp - p) < 0.5:
-                        new_pose = False
-                if new_pose:
-                    poses.append(yolo_pose)
 
         TR = np.identity(4)
         TR[0, 3] = T.transform.translation.x 
@@ -154,7 +164,7 @@ class OutlierRemover(Node):
         cv2.circle(img, (robot_pos[0]+ map_offset_x, -robot_pos[1]+map_offset_y), 5, (255,0,0), -1)
 
         pose_array = PoseArray()
-        for pose in poses:
+        for pose in msg.poses:
             det = np.array([pose.position.x, pose.position.y, 0, 1])
             det_in_mapf = TR @ det
 
@@ -191,7 +201,7 @@ class OutlierRemover(Node):
                     print("cell has wrong format")
         # convert to ros msg and publish
         pose_array.header = msg.header
-        self.inliers_pub.publish(pose_array)
+        return pose_array
 
 def main(args=None):
     rclpy.init(args=args)
