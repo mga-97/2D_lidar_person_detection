@@ -18,6 +18,7 @@ class PeopleSegmenting(Node):
         super().__init__("people_segmenting_node")
 
         self.count = 0
+        self.initial_time = 0.0
 
         scancsvfile = open('scans.csv', 'w', newline='')
         self.scan_writer = csv.writer(scancsvfile, delimiter=',', quotechar='|', quoting=csv.QUOTE_MINIMAL)
@@ -48,6 +49,12 @@ class PeopleSegmenting(Node):
                 
 
     def combined_callback(self, img_msg, depth_msg, scan_msg):
+        scan_time = scan_msg.header._stamp.sec + scan_msg.header._stamp.nanosec/1000000000
+        if self.count == 0:
+            self.initial_time = scan_time
+
+        current_time = scan_time - self.initial_time
+
         img = self.br.imgmsg_to_cv2(img_msg)
 
         yolo_img = img.copy()
@@ -60,7 +67,7 @@ class PeopleSegmenting(Node):
         processed_image = self.model(img)
                
         # write scan csv
-        self.scan_writer.writerow(scan_msg.ranges)
+        self.scan_writer.writerow([self.count, current_time] + list(scan_msg.ranges))
 
         angles_centre_dets = []
         # init labels
@@ -77,7 +84,7 @@ class PeopleSegmenting(Node):
                 end_angle = (det[2] / 640.0) * hfov
                 angular_width = end_angle - start_angle
                 angle = ( (det[0]  + (det[2] - det[0]) / 2) / 640.0) * hfov     
-                angle = np.deg2rad(-angle + hfov / 2)
+                angle = np.deg2rad(-angle + 6 + hfov / 2)
            
                 det = det.astype(int)
                 # compute avg depth of detection
@@ -145,7 +152,7 @@ class PeopleSegmenting(Node):
                     self.scan_pub.publish(new_scan)
                                     
         self.point_label_writer.writerow(labels)
-        self.xy_det_file.write(str(dets_xy) + '\n')
+        self.xy_det_file.write(f'{self.count},{[xy[:2] for xy in dets_xy]}\n')
         self.centre_angles.write(f'{str(angles_centre_dets)}\n')
         
         rgb = cv2.cvtColor(yolo_img, cv2.COLOR_BGR2RGB)
