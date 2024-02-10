@@ -31,3 +31,5 @@ output/
 results/
 result_*/
 wandb
+install
+log
